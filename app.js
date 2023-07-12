@@ -3,6 +3,7 @@ const express=require("express");
 const app=express();
 const bodyparser=require("body-parser");
 const ejs=require("ejs");
+const md5=require("md5");
 const encrypt=require("mongoose-encryption");
 app.use(express.static("public"));
 app.use(bodyparser.urlencoded({
@@ -55,11 +56,15 @@ app.post("/register",async(req,res)=>{
 app.post("/login",async(req,res)=>{
     try{
         const emailuser=req.body.username;
-        const passworduser=req.body.password;
+        const passworduser=(req.body.password);
         const founduser=await User.findOne({email:emailuser});
+       // console.log(passworduser);
+        //console.log(founduser.password);
         if(founduser)
         {
-            if(passworduser==founduser.password){
+           
+            if((passworduser)===(founduser.password)){
+               
                 res.render("secrets");
             }
             else{
