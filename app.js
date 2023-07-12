@@ -10,6 +10,7 @@ app.use(bodyparser.urlencoded({
 }));
 
 const mongoose=require("mongoose");
+require("dotenv").config();
 //const userSchema=require("./Usermodel.js");
 
 mongoose.connect('mongodb://127.0.0.1:27017/UserDB');
@@ -20,8 +21,7 @@ const userSchema=new mongoose.Schema({
     password:String
 })
 
-var secret="unguessablestringabcdef";
-userSchema.plugin(encrypt,{secret:secret,encryptedFields:["password"]});
+userSchema.plugin(encrypt,{secret:process.env.SECRET,encryptedFields:["password"]});
 const User=new mongoose.model("User",userSchema);
 
 
