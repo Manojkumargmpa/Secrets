@@ -3,6 +3,7 @@ const express=require("express");
 const app=express();
 const bodyparser=require("body-parser");
 const ejs=require("ejs");
+const encrypt=require("mongoose-encryption");
 app.use(express.static("public"));
 app.use(bodyparser.urlencoded({
     extended:true
@@ -14,10 +15,13 @@ const mongoose=require("mongoose");
 mongoose.connect('mongodb://127.0.0.1:27017/UserDB');
 
 app.set("view engine",'ejs');
-const userSchema={
+const userSchema=new mongoose.Schema({
     email:String,
     password:String
-}
+})
+
+var secret="unguessablestringabcdef";
+userSchema.plugin(encrypt,{secret:secret,encryptedFields:["password"]});
 const User=new mongoose.model("User",userSchema);
 
 
