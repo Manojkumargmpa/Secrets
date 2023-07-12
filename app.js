@@ -1,88 +1,103 @@
 //jshint esversion:6
-const express=require("express");
-const app=express();
-const bodyparser=require("body-parser");
-const ejs=require("ejs");
-// const md5=require("md5");
-const bcrypt=require("bcrypt");
-const saltRounds=10;
-const encrypt=require("mongoose-encryption");
+const express = require("express");
+const app = express();
+const bodyParser = require("body-parser");
+const ejs = require("ejs");
+const session = require("express-session");
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose");
+const mongoose = require("mongoose");
+
+app.set("view engine", "ejs");
 app.use(express.static("public"));
-app.use(bodyparser.urlencoded({
-    extended:true
+app.use(bodyParser.urlencoded({ extended: true }));
+
+app.use(session({
+    secret: "our little secret",
+    resave: false,
+    saveUninitialized: false
 }));
 
-const mongoose=require("mongoose");
+app.use(passport.initialize());
+app.use(passport.session());
 
-require("dotenv").config();
-//const userSchema=require("./Usermodel.js");
+mongoose.connect('mongodb://127.0.0.1:27017/UserDB', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+}).then(() => {
+    console.log("Connected to MongoDB");
+}).catch((err) => {
+    console.log("Error connecting to MongoDB:", err);
+});
 
-mongoose.connect('mongodb://127.0.0.1:27017/UserDB');
+const userSchema = new mongoose.Schema({
+    email: String,
+    password: String
+});
 
-app.set("view engine",'ejs');
-const userSchema=new mongoose.Schema({
-    email:String,
-    password:String
-})
+userSchema.plugin(passportLocalMongoose);
+const User = mongoose.model("User", userSchema);
 
-userSchema.plugin(encrypt,{secret:process.env.SECRET,encryptedFields:["password"]});
-const User=new mongoose.model("User",userSchema);
+passport.use(User.createStrategy());
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
+app.get("/", (req, res) => {
+    res.render("home");
+});
 
-app.get("/",(req,res)=>{
-    res.render("home")
-})
+app.get("/register", (req, res) => {
+    res.render("register");
+});
 
-app.get("/register",(req,res)=>{
-    res.render("register")
-})
+app.get("/login", (req, res) => {
+    res.render("login");
+});
 
-app.get("/login",(req,res)=>{
-    res.render("login")
-})
+app.get("/secrets", (req, res) => {
+    if (req.isAuthenticated()) {
+        res.render("secrets");
+    } else {
+        console.log("User is not authenticated");
+        res.redirect("/login");
+    }
+});
 
-app.post("/register",async (req,res)=>{
-
-   try{
-const hashedone=await bcrypt.hash(req.body.password,saltRounds);
-const user=new User({
-email:req.body.username,
-password:hashedone
-})
-await user.save();
-res.render("secrets")
-   }
-   catch(err){
-    if(err)console.log(err);
-   }
-
-})
-app.post("/login",async(req,res)=>{
-    try{
-        const emailuser=req.body.username;
-       // const passworduser=await bcrypt.hash(req.body.password,saltRounds);
-        const founduser=await User.findOne({email:emailuser});
-        //console.log(passworduser);
-        //console.log(founduser.password);
-        const oldpassword=founduser.password;
-        bcrypt.compare(req.body.password, oldpassword, function(err, result) {
-            // result == true
-            if(err)console.log(error);
-            else if(result){
-                res.render("secrets");
-            }
+app.post("/register", async (req, res) => {
+    try {
+        const user = new User({ email: req.body.username });
+        await User.register(user, req.body.password);
+        passport.authenticate("local")(req, res, () => {
+            res.redirect("/secrets");
         });
-    }
-    catch(err){
+    } catch (err) {
         console.log(err);
+        res.redirect("/register");
     }
-})
+});
 
+app.post("/login", (req, res) => {
+    const user = new User({
+        email: req.body.username,
+        password: req.body.password
+    });
 
+    req.login(user, (err) => {
+        if (err) {
+            console.log(err);
+        } else {
+            passport.authenticate("local")(req, res, () => {
+                res.redirect("/secrets");
+            });
+        }
+    });
+});
 
+app.get("/logout", (req, res) => {
+    req.logout();
+    res.redirect("/");
+});
 
-
-
-app.listen(3000,function(){
-console.log("Successfully connected to server");
-})
+app.listen(3000, () => {
+    console.log("Successfully connected to server");
+});
